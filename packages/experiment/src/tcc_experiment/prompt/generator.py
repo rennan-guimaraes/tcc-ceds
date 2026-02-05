@@ -6,10 +6,16 @@ da capacidade de tool calling dos LLMs.
 """
 
 import hashlib
+import random
 from dataclasses import dataclass
 from typing import Any
 
-from tcc_experiment.prompt.templates import PromptTemplate, get_template
+from tcc_experiment.prompt.templates import (
+    DifficultyLevel,
+    PromptTemplate,
+    get_template,
+    get_template_for_difficulty,
+)
 
 
 @dataclass
@@ -27,6 +33,7 @@ class GeneratedPrompt:
         context_value: Valor armadilha (do contexto).
         prompt_hash: Hash SHA256 do prompt completo (reprodutibilidade).
         context_repetitions: Número de vezes que o contexto foi repetido.
+        difficulty_level: Nível de dificuldade usado (neutral/counterfactual/adversarial).
     """
 
     system_prompt: str
@@ -39,6 +46,7 @@ class GeneratedPrompt:
     context_value: str
     prompt_hash: str
     context_repetitions: int
+    difficulty_level: str = "neutral"
 
     @property
     def full_prompt(self) -> str:
@@ -79,22 +87,30 @@ class PromptGenerator:
 
     def __init__(
         self,
-        template_name: str = "stock_price_query",
+        template_name: str | None = None,
         expected_value: str = "R$ 38,50",
         variables_override: dict[str, str] | None = None,
+        difficulty: DifficultyLevel = DifficultyLevel.NEUTRAL,
     ) -> None:
         """Inicializa o gerador.
 
         Args:
-            template_name: Nome do template a usar.
+            template_name: Nome do template a usar. Se None, usa o
+                template correspondente ao nível de dificuldade.
             expected_value: Valor correto esperado da tool.
             variables_override: Valores para sobrescrever no template.
+            difficulty: Nível de dificuldade do experimento.
         """
-        self.template = get_template(template_name)
+        self.difficulty = difficulty
+        if template_name:
+            self.template = get_template(template_name)
+        else:
+            self.template = get_template_for_difficulty(difficulty)
         self.expected_value = expected_value
         self.variables = {**self.template.variables}
         if variables_override:
             self.variables.update(variables_override)
+        self._rng = random.Random(42)
 
     def generate(
         self,
@@ -147,7 +163,24 @@ class PromptGenerator:
             context_value=variables.get("context_price", ""),
             prompt_hash=prompt_hash,
             context_repetitions=repetitions,
+            difficulty_level=self.difficulty.value,
         )
+
+    # Headers realistas para variação entre cópias
+    _REPORT_HEADERS: list[dict[str, str]] = [
+        {"report_name": "Relatório Mensal de Carteira", "analyst": "Ana Beatriz Souza", "date_suffix": "Jan/2025"},
+        {"report_name": "Análise Trimestral de Ativos", "analyst": "Carlos Eduardo Lima", "date_suffix": "Dez/2024"},
+        {"report_name": "Posição Consolidada do Cliente", "analyst": "Fernanda Oliveira", "date_suffix": "Nov/2024"},
+        {"report_name": "Relatório de Performance", "analyst": "Ricardo Mendes", "date_suffix": "Out/2024"},
+        {"report_name": "Revisão de Carteira Semestral", "analyst": "Juliana Martins", "date_suffix": "Set/2024"},
+        {"report_name": "Relatório de Acompanhamento", "analyst": "Pedro Henrique Costa", "date_suffix": "Ago/2024"},
+        {"report_name": "Análise de Risco e Retorno", "analyst": "Mariana Almeida", "date_suffix": "Jul/2024"},
+        {"report_name": "Informe de Investimentos", "analyst": "Lucas Ferreira", "date_suffix": "Jun/2024"},
+        {"report_name": "Extrato de Posições", "analyst": "Isabela Rodrigues", "date_suffix": "Mai/2024"},
+        {"report_name": "Relatório Gerencial de Ativos", "analyst": "Thiago Nascimento", "date_suffix": "Abr/2024"},
+        {"report_name": "Panorama de Investimentos", "analyst": "Gabriela Santos", "date_suffix": "Mar/2024"},
+        {"report_name": "Consolidação Patrimonial", "analyst": "Rafael Barbosa", "date_suffix": "Fev/2024"},
+    ]
 
     def _generate_polluted_context(
         self,
@@ -168,39 +201,80 @@ class PromptGenerator:
         if repetitions == 0:
             return None, 0
 
+        uses_counterfactual = self.difficulty in (
+            DifficultyLevel.COUNTERFACTUAL,
+            DifficultyLevel.ADVERSARIAL,
+        )
+
+        # Gera preços variados para counterfactual/adversarial
+        counterfactual_prices: list[float] = []
+        if uses_counterfactual and repetitions > 1:
+            base_price = self._parse_price(variables.get("context_price", "R$ 35,00"))
+            counterfactual_prices = self._generate_counterfactual_prices(
+                base_price, repetitions
+            )
+
         # Gera o bloco de contexto base
         base_context = self._format_template(
             self.template.context_template, variables
         )
 
-        # Cria separador entre repetições
-        separator = "\n\n" + "─" * 78 + "\n" + "      [CÓPIA DO RELATÓRIO PARA ARQUIVO]\n" + "─" * 78 + "\n\n"
+        # Separador simples entre relatórios
+        separator = "\n\n" + "─" * 78 + "\n\n"
 
-        # Repete o contexto
         if repetitions == 1:
             return base_context, 1
 
         contexts = [base_context]
         for i in range(1, repetitions):
-            # Adiciona pequenas variações para simular cópias
-            variation = self._add_context_variation(base_context, i)
+            copy_vars = {**variables}
+
+            # Header realista diferente por cópia
+            header_info = self._REPORT_HEADERS[i % len(self._REPORT_HEADERS)]
+            copy_vars["advisor_name"] = header_info["analyst"]
+            copy_vars["report_date"] = header_info["date_suffix"]
+
+            # Preço diferente por cópia (counterfactual/adversarial)
+            if uses_counterfactual and counterfactual_prices:
+                copy_vars["context_price"] = f"R$ {counterfactual_prices[i]:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+            variation = self._format_template(
+                self.template.context_template, copy_vars
+            )
             contexts.append(variation)
 
         return separator.join(contexts), repetitions
 
-    def _add_context_variation(self, context: str, index: int) -> str:
-        """Adiciona pequenas variações ao contexto para simular cópias.
+    def _generate_counterfactual_prices(
+        self, base: float, count: int
+    ) -> list[float]:
+        """Gera preços variados para cópias do contexto.
+
+        Cada cópia recebe um preço diferente (+/- 5% do base),
+        usando seed fixa para reprodutibilidade.
 
         Args:
-            context: Contexto original.
-            index: Índice da cópia (1, 2, 3...).
+            base: Preço base em float.
+            count: Número de preços a gerar.
 
         Returns:
-            Contexto com pequena variação.
+            Lista de preços variados.
         """
-        # Adiciona um header indicando que é uma cópia arquivada
-        header = f"[Cópia arquivada #{index + 1} - Gerada automaticamente pelo sistema]"
-        return f"{header}\n{context}"
+        rng = random.Random(42)
+        return [round(base * (1 + rng.uniform(-0.05, 0.05)), 2) for _ in range(count)]
+
+    @staticmethod
+    def _parse_price(price_str: str) -> float:
+        """Converte string de preço brasileiro para float.
+
+        Args:
+            price_str: Preço no formato "R$ 35,00".
+
+        Returns:
+            Valor float.
+        """
+        cleaned = price_str.replace("R$", "").replace(".", "").replace(",", ".").strip()
+        return float(cleaned)
 
     def _get_repetitions(self, pollution_level: float) -> int:
         """Obtém o número de repetições para um nível de poluição.
@@ -255,15 +329,17 @@ class PromptGenerator:
 
 
 def create_generator(
-    template_name: str = "stock_price_query",
+    template_name: str | None = None,
     expected_value: str = "R$ 38,50",
+    difficulty: DifficultyLevel = DifficultyLevel.NEUTRAL,
     **variables: str,
 ) -> PromptGenerator:
     """Factory function para criar um gerador de prompts.
 
     Args:
-        template_name: Nome do template.
+        template_name: Nome do template (se None, usa o da dificuldade).
         expected_value: Valor esperado da tool.
+        difficulty: Nível de dificuldade.
         **variables: Variáveis para o template.
 
     Returns:
@@ -277,4 +353,5 @@ def create_generator(
         template_name=template_name,
         expected_value=expected_value,
         variables_override=variables if variables else None,
+        difficulty=difficulty,
     )

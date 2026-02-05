@@ -38,6 +38,7 @@ class OllamaRunner(BaseRunner):
         host: str | None = None,
         temperature: float = 0.0,
         seed: int = 42,
+        num_ctx: int | None = None,
     ) -> None:
         """Inicializa o runner.
 
@@ -45,12 +46,14 @@ class OllamaRunner(BaseRunner):
             host: URL do servidor Ollama (usa config se None).
             temperature: Temperatura para geração (0 = determinístico).
             seed: Seed para reprodutibilidade.
+            num_ctx: Tamanho da janela de contexto (usa config se None).
         """
         settings = get_settings()
         self.host = host or settings.ollama_host
         self.default_options = {
             "temperature": temperature,
             "seed": seed,
+            "num_ctx": num_ctx or settings.ollama_num_ctx,
         }
 
         # Configura cliente Ollama
@@ -108,6 +111,9 @@ class OllamaRunner(BaseRunner):
     def _build_messages(self, prompt: GeneratedPrompt) -> list[dict[str, str]]:
         """Constrói lista de mensagens para o Ollama.
 
+        Contexto e pergunta vão na mesma mensagem do usuário,
+        sem tags artificiais ou resposta sintética do assistant.
+
         Args:
             prompt: Prompt gerado.
 
@@ -116,17 +122,11 @@ class OllamaRunner(BaseRunner):
         """
         messages = [{"role": "system", "content": prompt.system_prompt}]
 
-        # Se houver contexto, adiciona como mensagem do usuário
         if prompt.context:
-            context_msg = f"[CONTEXTO PARA REFERÊNCIA]\n\n{prompt.context}"
-            messages.append({"role": "user", "content": context_msg})
-            messages.append({
-                "role": "assistant",
-                "content": "Entendido. Analisei o contexto fornecido. Como posso ajudar?",
-            })
-
-        # Adiciona a pergunta principal
-        messages.append({"role": "user", "content": prompt.user_prompt})
+            content = f"{prompt.context}\n\n{prompt.user_prompt}"
+            messages.append({"role": "user", "content": content})
+        else:
+            messages.append({"role": "user", "content": prompt.user_prompt})
 
         return messages
 

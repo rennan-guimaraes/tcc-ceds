@@ -16,6 +16,7 @@ from rich.table import Table
 from tcc_experiment.database.repository import ExperimentRepository
 from tcc_experiment.evaluator import classify_result, EvaluationResult
 from tcc_experiment.prompt import PromptGenerator, GeneratedPrompt
+from tcc_experiment.prompt.templates import DifficultyLevel
 from tcc_experiment.runner import OllamaRunner, RunnerResult
 
 
@@ -37,6 +38,7 @@ class ExperimentConfig:
     iterations: int = 5
     hypothesis: str = "H1"
     description: str | None = None
+    difficulty: str = "neutral"
 
 
 @dataclass
@@ -82,7 +84,8 @@ class ExperimentRunner:
         self.save_to_db = save_to_db
         self.console = console or Console()
 
-        self.generator = PromptGenerator()
+        difficulty = DifficultyLevel(config.difficulty)
+        self.generator = PromptGenerator(difficulty=difficulty)
         self.ollama = OllamaRunner()
         self.repo = ExperimentRepository() if save_to_db else None
 
@@ -97,6 +100,7 @@ class ExperimentRunner:
         """
         self.console.print(f"\n[bold blue]Experimento: {self.config.name}[/bold blue]")
         self.console.print(f"Hipótese: {self.config.hypothesis}")
+        self.console.print(f"Dificuldade: {self.config.difficulty}")
         self.console.print(f"Modelos: {self.config.models}")
         self.console.print(f"Níveis de poluição: {self.config.pollution_levels}")
         self.console.print(f"Iterações por condição: {self.config.iterations}")
@@ -301,6 +305,7 @@ def run_experiment(
     pollution_levels: list[float] | None = None,
     iterations: int = 5,
     hypothesis: str = "H1",
+    difficulty: str = "neutral",
     save_to_db: bool = True,
 ) -> list[ExecutionRecord]:
     """Função conveniente para executar um experimento.
@@ -311,6 +316,7 @@ def run_experiment(
         pollution_levels: Níveis de poluição.
         iterations: Iterações por condição.
         hypothesis: Hipótese sendo testada.
+        difficulty: Nível de dificuldade.
         save_to_db: Se deve salvar no banco.
 
     Returns:
@@ -322,6 +328,7 @@ def run_experiment(
         pollution_levels=pollution_levels or [0.0, 20.0, 40.0, 60.0],
         iterations=iterations,
         hypothesis=hypothesis,
+        difficulty=difficulty,
     )
 
     runner = ExperimentRunner(config, save_to_db=save_to_db)

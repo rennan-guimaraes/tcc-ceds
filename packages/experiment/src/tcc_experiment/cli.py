@@ -45,10 +45,12 @@ def config() -> None:
 
     table.add_row("Database URL", str(settings.database_url))
     table.add_row("Ollama Host", settings.ollama_host)
+    table.add_row("Ollama num_ctx", str(settings.ollama_num_ctx))
     table.add_row("Log Level", settings.log_level)
     table.add_row("Iterações Padrão", str(settings.default_iterations))
     table.add_row("Níveis de Poluição", str(settings.pollution_levels))
     table.add_row("Tool Alvo", settings.target_tool)
+    table.add_row("Dificuldade", settings.difficulty_level)
 
     console.print(table)
 
@@ -90,6 +92,13 @@ def run(
             help="Hipótese sendo testada (H1, H2, H3)",
         ),
     ] = "H1",
+    difficulty: Annotated[
+        str,
+        typer.Option(
+            "--difficulty", "-d",
+            help="Nível de dificuldade (neutral, counterfactual, adversarial)",
+        ),
+    ] = "neutral",
     no_db: Annotated[
         bool,
         typer.Option(
@@ -124,6 +133,7 @@ def run(
         console.print(f"  Iterações: {iterations}")
         console.print(f"  Níveis de poluição: {levels}")
         console.print(f"  Hipótese: {hypothesis}")
+        console.print(f"  Dificuldade: {difficulty}")
         console.print(f"  Salvar no DB: {not no_db}")
 
         total_executions = len(model_list) * len(levels) * iterations
@@ -138,6 +148,7 @@ def run(
         pollution_levels=levels,
         iterations=iterations,
         hypothesis=hypothesis,
+        difficulty=difficulty,
     )
 
     runner = ExperimentRunner(config, save_to_db=not no_db, console=console)
@@ -160,17 +171,26 @@ def quick_test(
             help="Nível de poluição (%)",
         ),
     ] = 0.0,
+    difficulty: Annotated[
+        str,
+        typer.Option(
+            "--difficulty", "-d",
+            help="Nível de dificuldade (neutral, counterfactual, adversarial)",
+        ),
+    ] = "neutral",
 ) -> None:
     """Executa um teste rápido (1 execução)."""
     from tcc_experiment.prompt import create_generator
+    from tcc_experiment.prompt.templates import DifficultyLevel
     from tcc_experiment.runner import OllamaRunner
     from tcc_experiment.evaluator import classify_result
 
     console.print(f"\n[bold blue]Teste Rápido[/bold blue]")
     console.print(f"Modelo: {model}")
-    console.print(f"Poluição: {pollution}%\n")
+    console.print(f"Poluição: {pollution}%")
+    console.print(f"Dificuldade: {difficulty}\n")
 
-    gen = create_generator()
+    gen = create_generator(difficulty=DifficultyLevel(difficulty))
     runner = OllamaRunner()
 
     if not runner.is_available():

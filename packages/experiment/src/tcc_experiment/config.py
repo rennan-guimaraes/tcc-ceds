@@ -40,6 +40,12 @@ class Settings(BaseSettings):
         description="URL do servidor Ollama",
     )
 
+    ollama_num_ctx: int = Field(
+        default=32768,
+        ge=2048,
+        description="Tamanho da janela de contexto do Ollama (tokens)",
+    )
+
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="INFO",
@@ -63,6 +69,12 @@ class Settings(BaseSettings):
     target_tool: str = Field(
         default="get_stock_price",
         description="Nome da tool correta para o cenário",
+    )
+
+    # Difficulty
+    difficulty_level: str = Field(
+        default="neutral",
+        description="Nível de dificuldade (neutral, counterfactual, adversarial)",
     )
 
 
