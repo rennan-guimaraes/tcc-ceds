@@ -29,6 +29,8 @@ class EvaluationResult:
         extracted_value: Valor monetário extraído da resposta.
         confidence_score: Confiança na classificação (0-1).
         reasoning: Explicação da classificação.
+        tool_call_count: Número de tool calls realizadas.
+        tool_call_sequence: Sequência de tool calls (arrow-separated).
     """
 
     classification: Classification
@@ -39,6 +41,8 @@ class EvaluationResult:
     extracted_value: str | None
     confidence_score: float
     reasoning: str
+    tool_call_count: int = 0
+    tool_call_sequence: str = ""
 
 
 class ResultClassifier:
@@ -131,6 +135,8 @@ class ResultClassifier:
             extracted_value=extracted_value,
             confidence_score=confidence,
             reasoning=reasoning,
+            tool_call_count=result.tool_call_count,
+            tool_call_sequence=result.tool_call_sequence,
         )
 
     def _classify(
