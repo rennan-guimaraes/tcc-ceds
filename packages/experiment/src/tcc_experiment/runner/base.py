@@ -65,6 +65,16 @@ class RunnerResult:
         """Retorna lista de nomes das tools chamadas."""
         return [tc.tool_name for tc in self.tool_calls]
 
+    @property
+    def tool_call_count(self) -> int:
+        """Retorna o número de tool calls realizadas."""
+        return len(self.tool_calls)
+
+    @property
+    def tool_call_sequence(self) -> str:
+        """Retorna sequência de tool calls como string arrow-separated."""
+        return " -> ".join(tc.tool_name for tc in self.tool_calls)
+
 
 class BaseRunner(ABC):
     """Interface abstrata para runners de modelos LLM.
@@ -79,6 +89,7 @@ class BaseRunner(ABC):
         prompt: GeneratedPrompt,
         model: str,
         tools: list[dict[str, Any]] | None = None,
+        context_placement: str = "user",
     ) -> RunnerResult:
         """Executa um prompt no modelo.
 
@@ -86,6 +97,7 @@ class BaseRunner(ABC):
             prompt: Prompt gerado a ser executado.
             model: Nome/identificador do modelo.
             tools: Lista de tools disponíveis (formato Ollama).
+            context_placement: Onde posicionar o contexto (user ou system).
 
         Returns:
             RunnerResult com os resultados da execução.

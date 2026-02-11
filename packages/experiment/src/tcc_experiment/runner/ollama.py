@@ -6,6 +6,7 @@ com suporte a tool calling.
 
 import json
 import time
+from enum import Enum
 from typing import Any
 
 import ollama
@@ -15,6 +16,18 @@ from tcc_experiment.config import get_settings
 from tcc_experiment.prompt.generator import GeneratedPrompt
 from tcc_experiment.runner.base import BaseRunner, RunnerResult, ToolCallResult
 from tcc_experiment.tools.definitions import get_mock_response, get_tools_for_experiment
+
+
+class ContextPlacement(str, Enum):
+    """Onde posicionar o contexto poluído na mensagem.
+
+    Values:
+        USER: Contexto + pergunta na mensagem user (comportamento padrão).
+        SYSTEM: Contexto anexado ao system prompt, pergunta sozinha no user.
+    """
+
+    USER = "user"
+    SYSTEM = "system"
 
 
 class OllamaRunner(BaseRunner):
@@ -64,6 +77,7 @@ class OllamaRunner(BaseRunner):
         prompt: GeneratedPrompt,
         model: str,
         tools: list[dict[str, Any]] | None = None,
+        context_placement: ContextPlacement = ContextPlacement.USER,
     ) -> RunnerResult:
         """Executa um prompt no modelo Ollama.
 
@@ -71,6 +85,7 @@ class OllamaRunner(BaseRunner):
             prompt: Prompt gerado a ser executado.
             model: Nome do modelo (ex: qwen3:4b).
             tools: Lista de tools (usa padrão se None).
+            context_placement: Onde posicionar o contexto (user ou system).
 
         Returns:
             RunnerResult com os resultados da execução.
@@ -79,7 +94,7 @@ class OllamaRunner(BaseRunner):
             tools = get_tools_for_experiment()
 
         # Monta mensagens
-        messages = self._build_messages(prompt)
+        messages = self._build_messages(prompt, context_placement)
 
         # Executa com medição de tempo
         start_time = time.perf_counter()
@@ -108,26 +123,35 @@ class OllamaRunner(BaseRunner):
                 model_name=model,
             )
 
-    def _build_messages(self, prompt: GeneratedPrompt) -> list[dict[str, str]]:
+    def _build_messages(
+        self,
+        prompt: GeneratedPrompt,
+        context_placement: ContextPlacement = ContextPlacement.USER,
+    ) -> list[dict[str, str]]:
         """Constrói lista de mensagens para o Ollama.
-
-        Contexto e pergunta vão na mesma mensagem do usuário,
-        sem tags artificiais ou resposta sintética do assistant.
 
         Args:
             prompt: Prompt gerado.
+            context_placement: Onde posicionar o contexto.
 
         Returns:
             Lista de mensagens no formato Ollama.
         """
-        messages = [{"role": "system", "content": prompt.system_prompt}]
+        if context_placement == ContextPlacement.SYSTEM:
+            system_content = prompt.system_prompt
+            if prompt.context:
+                system_content = f"{prompt.system_prompt}\n\n{prompt.context}"
+            return [
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": prompt.user_prompt},
+            ]
 
+        # USER placement (padrão)
+        messages = [{"role": "system", "content": prompt.system_prompt}]
         if prompt.context:
-            content = f"{prompt.context}\n\n{prompt.user_prompt}"
-            messages.append({"role": "user", "content": content})
+            messages.append({"role": "user", "content": f"{prompt.context}\n\n{prompt.user_prompt}"})
         else:
             messages.append({"role": "user", "content": prompt.user_prompt})
-
         return messages
 
     def _execute_with_tools(
