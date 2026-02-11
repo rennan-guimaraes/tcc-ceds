@@ -210,6 +210,10 @@ class ExperimentRepository:
         result: RunnerResult,
         evaluation: EvaluationResult,
         iteration: int,
+        difficulty: str = "neutral",
+        tool_set: str = "base",
+        context_placement: str = "user",
+        adversarial_variant: str | None = None,
     ) -> UUID:
         """Salva uma execução completa com avaliação.
 
@@ -220,6 +224,10 @@ class ExperimentRepository:
             result: Resultado da execução.
             evaluation: Avaliação do resultado.
             iteration: Número da iteração.
+            difficulty: Nível de dificuldade.
+            tool_set: Conjunto de tools usado.
+            context_placement: Onde o contexto foi posicionado.
+            adversarial_variant: Variante adversarial (None se não adversarial).
 
         Returns:
             UUID da execução criada.
@@ -235,13 +243,14 @@ class ExperimentRepository:
                     INSERT INTO executions (
                         experiment_id, model_id, prompt_template_id,
                         pollution_level, iteration_number,
+                        difficulty, tool_set, context_placement, adversarial_variant,
                         system_prompt, user_prompt, context_content,
                         full_prompt_hash,
                         raw_response, response_text,
                         latency_ms,
                         expected_value, context_value
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id
                     """,
                     (
@@ -250,6 +259,10 @@ class ExperimentRepository:
                         template_id,
                         prompt.pollution_level,
                         iteration,
+                        difficulty,
+                        tool_set,
+                        context_placement,
+                        adversarial_variant,
                         prompt.system_prompt,
                         prompt.user_prompt,
                         prompt.context,
@@ -302,9 +315,10 @@ class ExperimentRepository:
                         used_tool_result, anchored_on_context,
                         extracted_value,
                         evaluation_method, confidence_score,
-                        reviewer_notes
+                        reviewer_notes,
+                        tool_call_count, tool_call_sequence
                     )
-                    SELECT %s, ct.id, %s, %s, %s, %s, %s, %s, %s, %s
+                    SELECT %s, ct.id, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     FROM classification_types ct WHERE ct.code = %s
                     """,
                     (
@@ -317,6 +331,8 @@ class ExperimentRepository:
                         "automatic",
                         evaluation.confidence_score,
                         evaluation.reasoning,
+                        evaluation.tool_call_count,
+                        evaluation.tool_call_sequence,
                         evaluation.classification.value,
                     )
                 )
