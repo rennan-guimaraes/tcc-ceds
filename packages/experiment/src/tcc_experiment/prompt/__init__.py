@@ -7,6 +7,7 @@ from tcc_experiment.prompt.generator import (
 )
 from tcc_experiment.prompt.templates import (
     STOCK_PRICE_TEMPLATE,
+    AdversarialVariant,
     DifficultyLevel,
     PromptTemplate,
     get_template,
@@ -15,6 +16,7 @@ from tcc_experiment.prompt.templates import (
 )
 
 __all__ = [
+    "AdversarialVariant",
     "DifficultyLevel",
     "GeneratedPrompt",
     "PromptGenerator",

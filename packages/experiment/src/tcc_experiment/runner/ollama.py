@@ -77,7 +77,7 @@ class OllamaRunner(BaseRunner):
         prompt: GeneratedPrompt,
         model: str,
         tools: list[dict[str, Any]] | None = None,
-        context_placement: ContextPlacement = ContextPlacement.USER,
+        context_placement: ContextPlacement | str = ContextPlacement.USER,
     ) -> RunnerResult:
         """Executa um prompt no modelo Ollama.
 
@@ -93,8 +93,10 @@ class OllamaRunner(BaseRunner):
         if tools is None:
             tools = get_tools_for_experiment()
 
+        placement = ContextPlacement(context_placement) if isinstance(context_placement, str) else context_placement
+
         # Monta mensagens
-        messages = self._build_messages(prompt, context_placement)
+        messages = self._build_messages(prompt, placement)
 
         # Executa com medição de tempo
         start_time = time.perf_counter()

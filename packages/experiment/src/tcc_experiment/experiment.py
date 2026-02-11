@@ -357,6 +357,9 @@ def run_experiment(
     hypothesis: str = "H1",
     difficulty: str = "neutral",
     save_to_db: bool = True,
+    tool_set: str = "base",
+    context_placement: str = "user",
+    adversarial_variant: str = "with_timestamp",
 ) -> list[ExecutionRecord]:
     """Função conveniente para executar um experimento.
 
@@ -368,6 +371,9 @@ def run_experiment(
         hypothesis: Hipótese sendo testada.
         difficulty: Nível de dificuldade.
         save_to_db: Se deve salvar no banco.
+        tool_set: Conjunto de tools (base, expanded).
+        context_placement: Posição do contexto (user, system).
+        adversarial_variant: Variante adversarial (with_timestamp, without_timestamp).
 
     Returns:
         Lista de registros de execução.
@@ -379,6 +385,9 @@ def run_experiment(
         iterations=iterations,
         hypothesis=hypothesis,
         difficulty=difficulty,
+        tool_set=tool_set,
+        context_placement=context_placement,
+        adversarial_variant=adversarial_variant,
     )
 
     runner = ExperimentRunner(config, save_to_db=save_to_db)
