@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from tcc_experiment.prompt.templates import (
+    AdversarialVariant,
     DifficultyLevel,
     PromptTemplate,
     get_template,
@@ -91,6 +92,7 @@ class PromptGenerator:
         expected_value: str = "R$ 38,50",
         variables_override: dict[str, str] | None = None,
         difficulty: DifficultyLevel = DifficultyLevel.NEUTRAL,
+        adversarial_variant: AdversarialVariant = AdversarialVariant.WITH_TIMESTAMP,
     ) -> None:
         """Inicializa o gerador.
 
@@ -100,12 +102,14 @@ class PromptGenerator:
             expected_value: Valor correto esperado da tool.
             variables_override: Valores para sobrescrever no template.
             difficulty: Nível de dificuldade do experimento.
+            adversarial_variant: Variante adversarial (só aplica quando difficulty=ADVERSARIAL).
         """
         self.difficulty = difficulty
+        self.adversarial_variant = adversarial_variant
         if template_name:
             self.template = get_template(template_name)
         else:
-            self.template = get_template_for_difficulty(difficulty)
+            self.template = get_template_for_difficulty(difficulty, adversarial_variant)
         self.expected_value = expected_value
         self.variables = {**self.template.variables}
         if variables_override:
@@ -332,6 +336,7 @@ def create_generator(
     template_name: str | None = None,
     expected_value: str = "R$ 38,50",
     difficulty: DifficultyLevel = DifficultyLevel.NEUTRAL,
+    adversarial_variant: AdversarialVariant = AdversarialVariant.WITH_TIMESTAMP,
     **variables: str,
 ) -> PromptGenerator:
     """Factory function para criar um gerador de prompts.
@@ -340,6 +345,7 @@ def create_generator(
         template_name: Nome do template (se None, usa o da dificuldade).
         expected_value: Valor esperado da tool.
         difficulty: Nível de dificuldade.
+        adversarial_variant: Variante adversarial (só aplica quando difficulty=ADVERSARIAL).
         **variables: Variáveis para o template.
 
     Returns:
@@ -354,4 +360,5 @@ def create_generator(
         expected_value=expected_value,
         variables_override=variables if variables else None,
         difficulty=difficulty,
+        adversarial_variant=adversarial_variant,
     )

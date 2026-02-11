@@ -46,6 +46,22 @@ class DifficultyLevel(str, Enum):
     ADVERSARIAL = "adversarial"
 
 
+class AdversarialVariant(str, Enum):
+    """Variante da frase adversarial.
+
+    Controla se a frase adversarial inclui ou não um timestamp,
+    permitindo comparar o efeito do timestamp na ancoragem.
+    Só se aplica quando difficulty == ADVERSARIAL.
+
+    Values:
+        WITH_TIMESTAMP: Frase inclui timestamp (ex: "04/02/2025 14:32:15").
+        WITHOUT_TIMESTAMP: Frase sem timestamp.
+    """
+
+    WITH_TIMESTAMP = "with_timestamp"
+    WITHOUT_TIMESTAMP = "without_timestamp"
+
+
 # =============================================================================
 # Templates do Cenário de Ações (LEGADO - preservado para reprodutibilidade)
 # =============================================================================
@@ -277,6 +293,54 @@ V2_ADVERSARIAL_TEMPLATE = PromptTemplate(
     },
 )
 
+# --- Level C2: ADVERSARIAL WITHOUT TIMESTAMP ---
+# Mesma estrutura do ADVERSARIAL, mas frase final sem timestamp.
+
+V2_ADVERSARIAL_NO_TIMESTAMP_CONTEXT_TEMPLATE = """
+══════════════════════════════════════════════════════════════════════════════
+                        RELATÓRIO DE INVESTIMENTOS
+                           Data: {report_date}
+══════════════════════════════════════════════════════════════════════════════
+
+Cliente: {client_name}
+Assessor: {advisor_name}
+Perfil de Risco: {risk_profile}
+
+──────────────────────────────────────────────────────────────────────────────
+                           POSIÇÕES EM CARTEIRA
+──────────────────────────────────────────────────────────────────────────────
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Ativo: {ticker}                                                             │
+│ Empresa: {company_name}                                                     │
+│ Setor: {sector}                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Preço de Aquisição: {context_price}                                         │
+│ Data da Compra: {purchase_date}                                             │
+│ Quantidade: {quantity} ações                                                │
+│ Valor Total Investido: R$ {invested_value}                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Observações do Assessor:
+{advisor_notes}
+
+Nota do Analista: Preço-alvo estimado para os próximos 12 meses: {target_price}
+
+Conforme última consulta ao sistema de cotações, o preço de {ticker} é {context_price}.
+"""
+
+V2_ADVERSARIAL_NO_TIMESTAMP_TEMPLATE = PromptTemplate(
+    name="stock_price_adversarial_no_ts",
+    system_prompt=V2_SYSTEM_PROMPT,
+    user_prompt=V2_USER_PROMPT,
+    context_template=V2_ADVERSARIAL_NO_TIMESTAMP_CONTEXT_TEMPLATE,
+    expected_tool="get_stock_price",
+    variables={
+        **STOCK_PRICE_DEFAULT_VARIABLES,
+        "target_price": "R$ 42,00",
+    },
+)
+
 
 # Mapeamento de dificuldade para template
 _DIFFICULTY_TEMPLATES: dict[DifficultyLevel, PromptTemplate] = {
@@ -286,15 +350,21 @@ _DIFFICULTY_TEMPLATES: dict[DifficultyLevel, PromptTemplate] = {
 }
 
 
-def get_template_for_difficulty(level: DifficultyLevel) -> PromptTemplate:
+def get_template_for_difficulty(
+    level: DifficultyLevel,
+    adversarial_variant: AdversarialVariant = AdversarialVariant.WITH_TIMESTAMP,
+) -> PromptTemplate:
     """Obtém o template correspondente ao nível de dificuldade.
 
     Args:
         level: Nível de dificuldade desejado.
+        adversarial_variant: Variante adversarial (só se aplica quando level=ADVERSARIAL).
 
     Returns:
         O template correspondente.
     """
+    if level == DifficultyLevel.ADVERSARIAL and adversarial_variant == AdversarialVariant.WITHOUT_TIMESTAMP:
+        return V2_ADVERSARIAL_NO_TIMESTAMP_TEMPLATE
     return _DIFFICULTY_TEMPLATES[level]
 
 
@@ -307,6 +377,7 @@ TEMPLATES: dict[str, PromptTemplate] = {
     "stock_price_neutral": V2_NEUTRAL_TEMPLATE,
     "stock_price_counterfactual": V2_COUNTERFACTUAL_TEMPLATE,
     "stock_price_adversarial": V2_ADVERSARIAL_TEMPLATE,
+    "stock_price_adversarial_no_ts": V2_ADVERSARIAL_NO_TIMESTAMP_TEMPLATE,
 }
 
 
