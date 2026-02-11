@@ -9,7 +9,6 @@ from tcc_experiment.database.models import (
     ExperimentStatus,
     Model,
     Tool,
-    ToolCall,
 )
 
 

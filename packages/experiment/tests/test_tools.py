@@ -1,6 +1,5 @@
 """Testes para as definições de tools."""
 
-import pytest
 
 from tcc_experiment.tools import (
     ALL_TOOLS,

@@ -13,7 +13,6 @@ from typing import Any
 from tcc_experiment.prompt.templates import (
     AdversarialVariant,
     DifficultyLevel,
-    PromptTemplate,
     get_template,
     get_template_for_difficulty,
 )

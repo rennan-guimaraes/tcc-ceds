@@ -7,12 +7,10 @@ das execuções e avaliações no PostgreSQL.
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from tcc_experiment.database.connection import get_connection
-from tcc_experiment.database.models import Classification, ExperimentStatus
 
 if TYPE_CHECKING:
     from tcc_experiment.evaluator.classifier import EvaluationResult
@@ -55,22 +53,21 @@ class ExperimentRepository:
         if pollution_levels is None:
             pollution_levels = [0.0, 20.0, 40.0, 60.0]
 
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                # Busca IDs de referência
-                hypothesis_id = None
-                if hypothesis:
-                    cur.execute(
-                        "SELECT id FROM hypotheses WHERE code = %s",
-                        (hypothesis,)
-                    )
-                    row = cur.fetchone()
-                    if row:
-                        hypothesis_id = row["id"]
-
-                # Cria experimento
+        with get_connection() as conn, conn.cursor() as cur:
+            # Busca IDs de referência
+            hypothesis_id = None
+            if hypothesis:
                 cur.execute(
-                    """
+                    "SELECT id FROM hypotheses WHERE code = %s",
+                    (hypothesis,)
+                )
+                row = cur.fetchone()
+                if row:
+                    hypothesis_id = row["id"]
+
+            # Cria experimento
+            cur.execute(
+                """
                     INSERT INTO experiments (
                         name, description, hypothesis_id,
                         pollution_levels, iterations_per_condition
@@ -78,11 +75,11 @@ class ExperimentRepository:
                     VALUES (%s, %s, %s, %s, %s)
                     RETURNING id
                     """,
-                    (name, description, hypothesis_id, pollution_levels, iterations)
-                )
-                result = cur.fetchone()
-                conn.commit()
-                return result["id"]
+                (name, description, hypothesis_id, pollution_levels, iterations)
+            )
+            result = cur.fetchone()
+            conn.commit()
+            return result["id"]
 
     def start_experiment(self, experiment_id: UUID) -> None:
         """Marca experimento como em execução.
@@ -145,44 +142,43 @@ class ExperimentRepository:
         Returns:
             UUID do modelo.
         """
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                # Tenta encontrar modelo existente (incluindo versão)
-                if version:
-                    cur.execute(
-                        """
+        with get_connection() as conn, conn.cursor() as cur:
+            # Tenta encontrar modelo existente (incluindo versão)
+            if version:
+                cur.execute(
+                    """
                         SELECT m.id FROM models m
                         JOIN providers p ON m.provider_id = p.id
                         WHERE m.name = %s AND p.name = %s AND m.version = %s
                         """,
-                        (name, provider, version)
-                    )
-                else:
-                    cur.execute(
-                        """
+                    (name, provider, version)
+                )
+            else:
+                cur.execute(
+                    """
                         SELECT m.id FROM models m
                         JOIN providers p ON m.provider_id = p.id
                         WHERE m.name = %s AND p.name = %s AND m.version IS NULL
                         """,
-                        (name, provider)
-                    )
-                row = cur.fetchone()
-                if row:
-                    return row["id"]
+                    (name, provider)
+                )
+            row = cur.fetchone()
+            if row:
+                return row["id"]
 
-                # Cria novo modelo
-                cur.execute(
-                    """
+            # Cria novo modelo
+            cur.execute(
+                """
                     INSERT INTO models (provider_id, name, version, parameter_count)
                     SELECT p.id, %s, %s, %s
                     FROM providers p WHERE p.name = %s
                     RETURNING id
                     """,
-                    (name, version, parameter_count, provider)
-                )
-                result = cur.fetchone()
-                conn.commit()
-                return result["id"]
+                (name, version, parameter_count, provider)
+            )
+            result = cur.fetchone()
+            conn.commit()
+            return result["id"]
 
     def get_prompt_template_id(self, name: str = "stock_price_query") -> UUID | None:
         """Obtém ID de um template de prompt.
@@ -193,14 +189,13 @@ class ExperimentRepository:
         Returns:
             UUID do template ou None.
         """
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT id FROM prompt_templates WHERE name = %s",
-                    (name,)
-                )
-                row = cur.fetchone()
-                return row["id"] if row else None
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM prompt_templates WHERE name = %s",
+                (name,)
+            )
+            row = cur.fetchone()
+            return row["id"] if row else None
 
     def save_execution(
         self,
@@ -349,17 +344,16 @@ class ExperimentRepository:
         Returns:
             Dicionário com estatísticas do experimento.
         """
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
                     SELECT * FROM v_metrics_by_pollution
                     WHERE experiment_id = %s
                     ORDER BY model_name, pollution_level
                     """,
-                    (experiment_id,)
-                )
-                return cur.fetchall()
+                (experiment_id,)
+            )
+            return cur.fetchall()
 
     def get_experiment_results(self, experiment_id: UUID) -> list[dict[str, Any]]:
         """Obtém todos os resultados de um experimento.
@@ -370,14 +364,13 @@ class ExperimentRepository:
         Returns:
             Lista de resultados.
         """
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
                     SELECT * FROM v_experiment_results
                     WHERE experiment_id = %s
                     ORDER BY pollution_level, iteration_number
                     """,
-                    (experiment_id,)
-                )
-                return cur.fetchall()
+                (experiment_id,)
+            )
+            return cur.fetchall()

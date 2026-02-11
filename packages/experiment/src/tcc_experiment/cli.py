@@ -4,7 +4,8 @@ Utiliza Typer para criar uma CLI amigável com comandos
 para executar experimentos e visualizar resultados.
 """
 
-from typing import Annotated, Optional
+import contextlib
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -24,7 +25,7 @@ console = Console()
 @app.callback()
 def main(
     version: Annotated[
-        Optional[bool],
+        bool | None,
         typer.Option("--version", "-v", help="Mostra a versao e sai"),
     ] = None,
 ) -> None:
@@ -79,7 +80,7 @@ def run(
         ),
     ] = 5,
     pollution_levels: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--pollution-levels", "-p",
             help="Niveis de poluicao (separados por virgula)",
@@ -228,14 +229,14 @@ def quick_test(
     ] = "with_timestamp",
 ) -> None:
     """Executa um teste rapido (1 execucao)."""
+    from tcc_experiment.evaluator import classify_result
     from tcc_experiment.prompt import create_generator
     from tcc_experiment.prompt.templates import AdversarialVariant, DifficultyLevel
     from tcc_experiment.runner import OllamaRunner
     from tcc_experiment.runner.ollama import ContextPlacement
-    from tcc_experiment.evaluator import classify_result
     from tcc_experiment.tools.definitions import ToolSet, get_tools_for_experiment
 
-    console.print(f"\n[bold blue]Teste Rapido[/bold blue]")
+    console.print("\n[bold blue]Teste Rapido[/bold blue]")
     console.print(f"Modelo: {model}")
     console.print(f"Poluicao: {pollution}%")
     console.print(f"Dificuldade: {difficulty}")
@@ -289,7 +290,7 @@ def quick_test(
     console.print(f"\n[dim]Razao: {evaluation.reasoning}[/dim]")
 
     if result.response_text:
-        console.print(f"\n[bold]Resposta do modelo:[/bold]")
+        console.print("\n[bold]Resposta do modelo:[/bold]")
         console.print(result.response_text[:500])
 
 
@@ -330,11 +331,11 @@ def quick_test_all(
     ] = "user",
 ) -> None:
     """Teste rapido em todos os niveis de dificuldade (1 execucao cada)."""
+    from tcc_experiment.evaluator import classify_result
     from tcc_experiment.prompt import create_generator
     from tcc_experiment.prompt.templates import AdversarialVariant, DifficultyLevel
     from tcc_experiment.runner import OllamaRunner
     from tcc_experiment.runner.ollama import ContextPlacement
-    from tcc_experiment.evaluator import classify_result
     from tcc_experiment.tools.definitions import ToolSet, get_tools_for_experiment
 
     runner = OllamaRunner()
@@ -343,7 +344,7 @@ def quick_test_all(
         console.print("[red]Erro: Ollama nao esta disponivel![/red]")
         raise typer.Exit(1)
 
-    console.print(f"\n[bold blue]Quick Test All[/bold blue]")
+    console.print("\n[bold blue]Quick Test All[/bold blue]")
     console.print(f"Modelo: {model} | Poluicao: {pollution}%")
     console.print(f"Tool Set: {tool_set} | Context Placement: {context_placement}\n")
 
@@ -391,7 +392,7 @@ def quick_test_all(
 @app.command()
 def run_all(
     models: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--models", "-m",
             help="Modelos (separados por virgula). Default: qwen3:4b,qwen3:8b",
@@ -405,7 +406,7 @@ def run_all(
         ),
     ] = 20,
     pollution_levels: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--pollution-levels", "-p",
             help="Niveis de poluicao (separados por virgula). Default: 0,20,40,60,80,100",
@@ -419,21 +420,21 @@ def run_all(
         ),
     ] = "H1",
     tool_sets: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--tool-sets",
             help="Tool sets separados por virgula (base,expanded)",
         ),
     ] = None,
     context_placements: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--context-placements",
             help="Context placements separados por virgula (user,system)",
         ),
     ] = None,
     adversarial_variants: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--adversarial-variants",
             help="Variantes adversariais separadas por virgula (with_timestamp,without_timestamp)",
@@ -480,7 +481,7 @@ def run_all(
         variants = variant_list if diff == "adversarial" else ["with_timestamp"]
         total += len(model_list) * len(levels) * iterations * len(tool_set_list) * len(placement_list) * len(variants)
 
-    console.print(f"\n[bold blue]Experimento Completo v3[/bold blue]")
+    console.print("\n[bold blue]Experimento Completo v3[/bold blue]")
     console.print(f"Modelos: {model_list}")
     console.print(f"Iteracoes: {iterations}")
     console.print(f"Niveis poluicao: {levels}")
@@ -551,10 +552,8 @@ def run_all(
 
     # Finaliza experimento no banco
     if save_to_db and repo and experiment_id:
-        try:
+        with contextlib.suppress(Exception):
             repo.finish_experiment(experiment_id, "completed")
-        except Exception:
-            pass
 
     # Resumo consolidado final
     if len(DIFFICULTIES) > 1:
@@ -567,7 +566,7 @@ def run_all(
 
 def _print_consolidated_summary(
     records: list,
-    experiment_id: object,
+    experiment_id: object,  # noqa: ARG001
     console: Console,
 ) -> None:
     """Imprime resumo consolidado de todas as dificuldades."""
@@ -624,7 +623,7 @@ def _print_consolidated_summary(
 @app.command()
 def results(
     experiment_id: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--experiment-id", "-e",
             help="ID do experimento",
@@ -637,6 +636,7 @@ def results(
         return
 
     from uuid import UUID
+
     from tcc_experiment.database import ExperimentRepository
 
     try:
@@ -650,8 +650,6 @@ def results(
         # Detecta se ha multiplas dificuldades
         difficulties = {row.get("difficulty") for row in summary}
         has_difficulty = any(d is not None for d in difficulties)
-        has_multiple = len(difficulties - {None}) > 1
-
         # Detecta se ha colunas de novas dimensoes
         has_tool_set = any(row.get("tool_set") is not None for row in summary)
         has_context_placement = any(row.get("context_placement") is not None for row in summary)
@@ -720,6 +718,7 @@ def export(
     """Exporta resultados para CSV."""
     import csv
     from uuid import UUID
+
     from tcc_experiment.database import ExperimentRepository
 
     try:

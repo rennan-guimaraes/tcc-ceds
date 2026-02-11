@@ -3,8 +3,8 @@
 Utiliza psycopg3 com connection pooling para eficiência.
 """
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
 
 import psycopg
 from psycopg.rows import dict_row

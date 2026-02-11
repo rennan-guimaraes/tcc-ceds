@@ -180,10 +180,8 @@ class TestOllamaRunnerMessageBuilding:
 
         messages = runner._build_messages(prompt)
 
-        # system + context(user) + ack(assistant) + question(user)
-        assert len(messages) == 4
+        # system + user (contexto + pergunta na mesma mensagem)
+        assert len(messages) == 2
         assert messages[0]["role"] == "system"
         assert messages[1]["role"] == "user"
-        assert "CONTEXTO" in messages[1]["content"]
-        assert messages[2]["role"] == "assistant"
-        assert messages[3]["role"] == "user"
+        assert "PETR4" in messages[1]["content"]

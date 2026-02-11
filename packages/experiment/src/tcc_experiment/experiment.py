@@ -4,20 +4,25 @@ Coordena a execução completa do experimento de alucinação em tool calling,
 gerenciando o ciclo de geração de prompts, execução e avaliação.
 """
 
+import contextlib
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Callable
 from uuid import UUID
 
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+)
 from rich.table import Table
 
 from tcc_experiment.database.repository import ExperimentRepository
-from tcc_experiment.evaluator import classify_result, EvaluationResult
-from tcc_experiment.prompt import PromptGenerator, GeneratedPrompt
+from tcc_experiment.evaluator import classify_result
+from tcc_experiment.prompt import PromptGenerator
 from tcc_experiment.prompt.templates import AdversarialVariant, DifficultyLevel
-from tcc_experiment.runner import OllamaRunner, RunnerResult
+from tcc_experiment.runner import OllamaRunner
 from tcc_experiment.runner.ollama import ContextPlacement
 from tcc_experiment.tools.definitions import ToolSet, get_tools_for_experiment
 
@@ -206,10 +211,8 @@ class ExperimentRunner:
 
         # Finaliza experimento (apenas se este runner criou o experimento)
         if self.save_to_db and self.repo and self.experiment_id and self._owns_experiment:
-            try:
+            with contextlib.suppress(Exception):
                 self.repo.finish_experiment(self.experiment_id, "completed")
-            except Exception:
-                pass
 
         # Mostra resumo
         self._print_summary()
@@ -250,7 +253,7 @@ class ExperimentRunner:
 
         # Salva no banco
         if self.save_to_db and self.repo and self.experiment_id and model_id:
-            try:
+            with contextlib.suppress(Exception):
                 self.repo.save_execution(
                     experiment_id=self.experiment_id,
                     model_id=model_id,
@@ -263,8 +266,6 @@ class ExperimentRunner:
                     context_placement=self.config.context_placement,
                     adversarial_variant=self.config.adversarial_variant if self.config.difficulty == "adversarial" else None,
                 )
-            except Exception:
-                pass
 
         return ExecutionRecord(
             model=model,

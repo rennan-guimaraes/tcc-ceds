@@ -9,7 +9,6 @@ Classifica cada execução em uma das categorias:
 
 import re
 from dataclasses import dataclass
-from typing import Any
 
 from tcc_experiment.database.models import Classification
 from tcc_experiment.prompt.generator import GeneratedPrompt
@@ -295,10 +294,7 @@ class ResultClassifier:
         ]
 
         text_lower = text.lower()
-        for pattern in patterns:
-            if re.search(pattern, text_lower):
-                return True
-        return False
+        return any(re.search(pattern, text_lower) for pattern in patterns)
 
 
 def classify_result(

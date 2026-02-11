@@ -6,7 +6,7 @@ e serialização automática.
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -65,12 +65,12 @@ class Tool(BaseModel):
         is_target: Se é a tool correta para o cenário.
     """
 
-    id: Optional[UUID] = None
+    id: UUID | None = None
     name: str
     description: str
     parameters_schema: dict[str, Any]
     is_target: bool = False
-    mock_response: Optional[dict[str, Any]] = None
+    mock_response: dict[str, Any] | None = None
 
 
 class Model(BaseModel):
@@ -84,12 +84,12 @@ class Model(BaseModel):
         parameter_count: Quantidade de parâmetros (ex: 4B).
     """
 
-    id: Optional[UUID] = None
+    id: UUID | None = None
     name: str
-    version: Optional[str] = None
+    version: str | None = None
     provider: str = "ollama"
-    parameter_count: Optional[str] = None
-    context_window: Optional[int] = None
+    parameter_count: str | None = None
+    context_window: int | None = None
 
 
 class Experiment(BaseModel):
@@ -104,16 +104,16 @@ class Experiment(BaseModel):
         iterations_per_condition: Iterações por combinação.
     """
 
-    id: Optional[UUID] = None
+    id: UUID | None = None
     name: str
-    description: Optional[str] = None
-    hypothesis: Optional[str] = None
+    description: str | None = None
+    hypothesis: str | None = None
     status: ExperimentStatus = ExperimentStatus.PENDING
     pollution_levels: list[float] = Field(default=[0.0, 20.0, 40.0, 60.0])
     iterations_per_condition: int = Field(default=20, ge=1)
-    created_at: Optional[datetime] = None
-    started_at: Optional[datetime] = None
-    finished_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
 
 
 class ToolCall(BaseModel):
@@ -127,9 +127,9 @@ class ToolCall(BaseModel):
     """
 
     tool_name: str
-    arguments: Optional[dict[str, Any]] = None
-    result: Optional[dict[str, Any]] = None
-    error: Optional[str] = None
+    arguments: dict[str, Any] | None = None
+    result: dict[str, Any] | None = None
+    error: str | None = None
     sequence_order: int = 1
 
 
@@ -146,8 +146,8 @@ class Execution(BaseModel):
         classification: Classificação do resultado.
     """
 
-    id: Optional[UUID] = None
-    experiment_id: Optional[UUID] = None
+    id: UUID | None = None
+    experiment_id: UUID | None = None
     model: Model
     pollution_level: float = Field(ge=0.0, le=100.0)
     iteration_number: int = Field(ge=1)
@@ -155,22 +155,22 @@ class Execution(BaseModel):
     # Prompt
     system_prompt: str
     user_prompt: str
-    context_content: Optional[str] = None
+    context_content: str | None = None
 
     # Response
-    raw_response: Optional[dict[str, Any]] = None
-    response_text: Optional[str] = None
+    raw_response: dict[str, Any] | None = None
+    response_text: str | None = None
     tool_calls: list[ToolCall] = Field(default_factory=list)
 
     # Metrics
-    latency_ms: Optional[int] = None
-    total_input_tokens: Optional[int] = None
-    response_tokens: Optional[int] = None
+    latency_ms: int | None = None
+    total_input_tokens: int | None = None
+    response_tokens: int | None = None
 
     # Evaluation
-    classification: Optional[Classification] = None
-    expected_value: Optional[str] = None
-    context_value: Optional[str] = None
-    extracted_value: Optional[str] = None
+    classification: Classification | None = None
+    expected_value: str | None = None
+    context_value: str | None = None
+    extracted_value: str | None = None
 
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None

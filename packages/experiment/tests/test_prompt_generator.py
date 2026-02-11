@@ -161,7 +161,7 @@ class TestCreateGenerator:
         gen = create_generator()
         prompt = gen.generate(0.0)
 
-        assert prompt.template_name == "stock_price_query"
+        assert prompt.template_name == "stock_price_neutral"
         assert prompt.expected_tool == "get_stock_price"
 
     def test_create_with_custom_values(self) -> None:
