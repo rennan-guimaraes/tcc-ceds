@@ -227,8 +227,16 @@ def quick_test(
             help="Variante adversarial (with_timestamp, without_timestamp)",
         ),
     ] = "with_timestamp",
+    no_save: Annotated[
+        bool,
+        typer.Option(
+            "--no-save",
+            help="Nao salvar no banco de dados",
+        ),
+    ] = False,
 ) -> None:
     """Executa um teste rapido (1 execucao)."""
+    from tcc_experiment.database.repository import ExperimentRepository
     from tcc_experiment.evaluator import classify_result
     from tcc_experiment.prompt import create_generator
     from tcc_experiment.prompt.templates import AdversarialVariant, DifficultyLevel
@@ -236,13 +244,16 @@ def quick_test(
     from tcc_experiment.runner.ollama import ContextPlacement
     from tcc_experiment.tools.definitions import ToolSet, get_tools_for_experiment
 
+    save_to_db = not no_save
+
     console.print("\n[bold blue]Teste Rapido[/bold blue]")
     console.print(f"Modelo: {model}")
     console.print(f"Poluicao: {pollution}%")
     console.print(f"Dificuldade: {difficulty}")
     console.print(f"Tool Set: {tool_set}")
     console.print(f"Context Placement: {context_placement}")
-    console.print(f"Adversarial Variant: {adversarial_variant}\n")
+    console.print(f"Adversarial Variant: {adversarial_variant}")
+    console.print(f"Salvar no banco: {save_to_db}\n")
 
     gen = create_generator(
         difficulty=DifficultyLevel(difficulty),
@@ -270,6 +281,43 @@ def quick_test(
         )
 
     evaluation = classify_result(prompt, result)
+
+    # Salva no banco
+    execution_id = None
+    if save_to_db:
+        try:
+            repo = ExperimentRepository()
+            parts = model.split(":")
+            model_name = parts[0]
+            model_version = parts[1] if len(parts) > 1 else None
+            model_id = repo.get_or_create_model(
+                name=model_name,
+                version=model_version,
+                parameter_count=model_version.upper() if model_version else None,
+            )
+            experiment_id = repo.create_experiment(
+                name=f"Quick Test - {model} - {difficulty}",
+                hypothesis="H1",
+                pollution_levels=[pollution],
+                iterations=1,
+            )
+            repo.start_experiment(experiment_id)
+            execution_id = repo.save_execution(
+                experiment_id=experiment_id,
+                model_id=model_id,
+                prompt=prompt,
+                result=result,
+                evaluation=evaluation,
+                iteration=1,
+                difficulty=difficulty,
+                tool_set=tool_set,
+                context_placement=context_placement,
+                adversarial_variant=adversarial_variant if difficulty == "adversarial" else None,
+            )
+            repo.finish_experiment(experiment_id, "completed")
+            console.print(f"[green]Salvo no banco (experiment: {experiment_id})[/green]\n")
+        except Exception as e:
+            console.print(f"[yellow]Aviso: nao foi possivel salvar no banco: {e}[/yellow]\n")
 
     # Resultado
     table = Table(title="Resultado")
