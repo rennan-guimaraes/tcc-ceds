@@ -105,10 +105,9 @@ docker compose ps
 # Verificar se Ollama está rodando
 ollama --version
 
-# Baixar modelos necessários
+# Baixar modelos necessarios (unicos com tool calling + sensiveis ao adversarial)
 ollama pull qwen3:4b
-ollama pull llama3:8b
-ollama pull mistral:7b
+ollama pull qwen3:8b
 
 # Listar modelos instalados
 ollama list
@@ -210,17 +209,30 @@ packages/experiment/
 ## Executando o Experimento
 
 ```bash
-# Rodar experimento completo
-uv run tcc-experiment run --models qwen3:4b,llama3:8b --iterations 20
+# Teste rapido (1 execucao)
+uv run tcc-experiment quick-test --model qwen3:4b --pollution 40
 
-# Rodar apenas um nível de poluição
-uv run tcc-experiment run --pollution-level 40
+# Teste rapido nas 3 dificuldades
+uv run tcc-experiment quick-test-all --model qwen3:4b --pollution 40
+
+# Experimento customizado
+uv run tcc-experiment run \
+  --name "Test v3" \
+  --models "qwen3:4b,qwen3:8b" \
+  --iterations 20 \
+  --difficulty adversarial \
+  --tool-set expanded \
+  --context-placement system
+
+# Experimento completo v3 (todas as combinacoes)
+uv run tcc-experiment run-all --dry-run  # ver total primeiro
+uv run tcc-experiment run-all --models "qwen3:4b,qwen3:8b" --iterations 20
 
 # Ver resultados
 uv run tcc-experiment results --experiment-id <uuid>
 
 # Exportar para CSV
-uv run tcc-experiment export --format csv --output results.csv
+uv run tcc-experiment export --experiment-id <uuid> --output results.csv
 ```
 
 ---
