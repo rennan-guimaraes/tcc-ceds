@@ -19,6 +19,9 @@ uv run tcc-experiment run-all \
   --pollution-levels "0,20,40,60,80,100" \
   --iterations 20 \
   --hypothesis "H1" \
+  --tool-sets "base,expanded" \
+  --context-placements "user,system" \
+  --adversarial-variants "with_timestamp,without_timestamp" \
   2>&1 | tee -a "$LOG_FILE"
 
 echo "" | tee -a "$LOG_FILE"

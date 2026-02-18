@@ -225,8 +225,13 @@ uv run tcc-experiment run \
   --context-placement system
 
 # Experimento completo v3 (todas as combinacoes)
-uv run tcc-experiment run-all --dry-run  # ver total primeiro
-uv run tcc-experiment run-all --models "qwen3:4b,qwen3:8b" --iterations 20
+uv run tcc-experiment run-all \
+  --models "qwen3:4b,qwen3:8b" \
+  --iterations 20 \
+  --tool-sets "base,expanded" \
+  --context-placements "user,system" \
+  --adversarial-variants "with_timestamp,without_timestamp" \
+  --dry-run  # remover --dry-run para executar de verdade
 
 # Ver resultados
 uv run tcc-experiment results --experiment-id <uuid>
